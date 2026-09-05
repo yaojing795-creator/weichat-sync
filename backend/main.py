@@ -16,9 +16,19 @@ from services.sync_service import sync_manager, start_all_running_tasks
 
 
 async def _init_db():
-    """初始化数据库表结构"""
-    Base.metadata.create_all(bind=engine)
-    print("[数据库] 表结构初始化完成")
+    """初始化数据库表结构（如果不存在）"""
+    # 使用checkfirst参数避免重复创建表
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    
+    # 只创建不存在的表
+    for table in Base.metadata.tables.values():
+        if table.name not in existing_tables:
+            table.create(engine)
+            print(f"[数据库] 创建表: {table.name}")
+    
+    print("[数据库] 表结构检查完成")
 
 
 async def _seed_admin():
