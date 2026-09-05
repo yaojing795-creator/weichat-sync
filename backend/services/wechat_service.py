@@ -111,10 +111,17 @@ wechat_sim = WeChatSimulator()
 
 
 def init_default_admin(db: Session):
-    """初始化默认管理员账号"""
+    """初始化默认管理员账号（幂等操作）"""
     from auth import hash_password
+    from sqlalchemy.exc import IntegrityError
+    
+    # 检查是否已存在管理员
     admin = db.query(models.User).filter(models.User.username == "admin").first()
-    if not admin:
+    if admin:
+        print("[初始化] 管理员账号已存在，跳过创建")
+        return
+    
+    try:
         admin = models.User(
             username="admin",
             password_hash=hash_password("admin123"),
@@ -126,3 +133,7 @@ def init_default_admin(db: Session):
         db.commit()
         db.refresh(admin)
         print(f"[初始化] 默认管理员账号已创建: admin / admin123")
+    except IntegrityError:
+        # 如果并发情况下发生冲突，回滚并返回
+        db.rollback()
+        print("[初始化] 管理员账号已存在（并发情况），跳过创建")
