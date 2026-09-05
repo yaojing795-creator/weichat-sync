@@ -1,158 +1,115 @@
-# 云端微信跟圈 SaaS 原型系统
+# 云端微信跟圈 SaaS 系统
 
 > 微信朋友圈自动同步管理系统 - 原型版本 v1.0.0
 
-## 📋 功能清单
-
-| 功能模块 | 说明 |
-|---------|------|
-| 用户注册登录 | JWT 认证，密码 bcrypt 加密 |
-| 账号管理 | 批量添加微信账号，云端托管上下线 |
-| 跟圈配置 | 设置源好友ID，监听朋友圈动态 |
-| 自动转发 | 文字/图片/视频自动抓取并转发 |
-| 延时转发 | 支持 0-300 秒自定义延迟 |
-| 多任务并行 | 多账号同时跟圈，互不干扰 |
-| 状态面板 | 在线状态、转发记录、报错日志 |
-| 异常处理 | 掉线告警 + 自动重连机制 |
-| 权限区分 | 普通用户 / 管理员双角色 |
-
-## 🏗 系统架构
+## 系统架构
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    前端 (HTML/CSS/JS)                │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │ 仪表盘   │  │ 账号管理 │  │ 跟圈任务 │          │
-│  └──────────┘  └──────────┘  └──────────┘          │
-│  ┌──────────┐  ┌──────────┐                        │
-│  │ 转发日志 │  │ 系统管理 │ (管理员)                │
-│  └──────────┘  └──────────┘                        │
-└─────────────────────────────────────────────────────┘
-                         │
-                         ▼ HTTPS/WebSocket
-┌─────────────────────────────────────────────────────┐
-│              FastAPI 后端 (Python)                   │
-│  ┌─────────────┐  ┌─────────────┐                  │
-│  │  REST API   │  │  定时调度器  │                  │
-│  │  /api/auth  │  │  心跳巡检    │                  │
-│  │  /api/tasks │  │  任务管理    │                  │
-│  │  /api/admin │  │  异常告警    │                  │
-│  └─────────────┘  └─────────────┘                  │
-└─────────────────────────────────────────────────────┘
-                         │
-                         ▼ SQLAlchemy ORM
-┌─────────────────────────────────────────────────────┐
-│                  SQLite 数据库                       │
-│  users | wechat_accounts | follow_tasks             │
-│  forward_logs | system_logs | wechat_posts          │
-└─────────────────────────────────────────────────────┘
+前端 (HTML/CSS/JS SPA) → FastAPI 后端 → SQLite 数据库
+                              ↓
+                        asyncio 同步调度器
+                              ↓
+                        微信模拟器 (WeChatSimulator)
 ```
 
-## 🚀 快速开始
+## 功能清单
 
-### 方式一：一键启动（推荐）
-```bash
-cd weichat-sync
-chmod +x deploy.sh
-./deploy.sh
-```
+| 功能 | 状态 |
+|------|------|
+| 用户注册/登录 (JWT认证) | ✅ |
+| 微信账号管理 (CRUD+上下线) | ✅ |
+| 跟圈任务配置 (源好友ID+延迟) | ✅ |
+| 自动转发 (文字/图片/视频) | ✅ |
+| 多任务并行 (asyncio协程) | ✅ |
+| 状态面板 (在线/转发/日志) | ✅ |
+| 异常处理 (掉线告警+自动重连) | ✅ |
+| 权限区分 (管理员/普通用户) | ✅ |
 
-### 方式二：手动启动
+## 默认账号
+
+- **管理员**: `admin` / `admin123`
+- 首次登录后请立即修改密码
+
+## 快速开始
+
 ```bash
 cd backend
-pip3 install -r requirements.txt
+pip3 install -r ../requirements.txt
 python3 main.py
 ```
 
-### 访问地址
-- 本地访问: http://localhost:8765
-- 默认管理员: `admin` / `admin123`
+访问 http://localhost:8765
 
-## 📁 项目结构
+## 部署到公网
 
-```
-weichat-sync/
-├── backend/
-│   ├── main.py              # 服务入口
-│   ├── database.py          # 数据库连接
-│   ├── models.py            # 数据模型
-│   ├── schemas.py           # API 数据模式
-│   ├── auth.py              # 认证工具（纯标准库 JWT）
-│   ├── routers/
-│   │   ├── auth.py          # 注册/登录接口
-│   │   ├── accounts.py      # 账号 CRUD + 上下线
-│   │   ├── tasks.py         # 跟圈任务管理
-│   │   └── admin.py         # 管理员接口
-│   └── services/
-│       ├── wechat_service.py # 微信模拟器
-│       └── sync_service.py   # 同步任务调度器
-├── frontend/
-│   ├── index.html           # 单页应用主页面
-│   ├── css/style.css        # 样式
-│   └── js/
-│       ├── api.js           # API 客户端封装
-│       ├── utils.js         # 工具函数
-│       └── pages/
-│           ├── dashboard.js
-│           ├── accounts.js
-│           ├── tasks.js
-│           └── admin.js
-├── deploy.sh                # 一键部署脚本
-└── README.md               # 本文档
+### 方式一：Railway（最简单）
+1. 将本仓库推送到 GitHub
+2. 登录 https://railway.app
+3. New Project → Deploy from GitHub repo
+4. 添加环境变量 `JWT_SECRET=任意随机字符串`
+5. 获得访问网址
+
+### 方式二：Render
+1. 推送到 GitHub
+2. https://render.com → New Web Service
+3. Build: `pip install -r requirements.txt`
+4. Start: `python backend/main.py`
+5. 环境变量 `PORT=8080`
+
+### 方式三：Docker
+```bash
+docker build -t weichat-sync .
+docker run -p 8765:8765 -e JWT_SECRET=your-secret weichat-sync
 ```
 
-## 🔌 API 接口说明
+## API 接口
 
-### 认证接口
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/auth/register` | 用户注册 |
 | POST | `/api/auth/login` | 用户登录 |
 | GET | `/api/auth/me` | 获取当前用户 |
-
-### 账号管理接口
-| 方法 | 路径 | 说明 |
-|------|------|------|
 | GET | `/api/accounts/` | 获取账号列表 |
 | POST | `/api/accounts/` | 添加账号 |
-| PUT | `/api/accounts/{id}` | 更新账号 |
-| DELETE | `/api/accounts/{id}` | 删除账号 |
 | POST | `/api/accounts/{id}/online` | 账号上线 |
 | POST | `/api/accounts/{id}/offline` | 账号下线 |
-| GET | `/api/accounts/{id}/logs` | 获取转发日志 |
-
-### 跟圈任务接口
-| 方法 | 路径 | 说明 |
-|------|------|------|
 | GET | `/api/tasks/` | 获取任务列表 |
 | POST | `/api/tasks/` | 创建任务 |
-| PUT | `/api/tasks/{id}` | 更新任务 |
 | POST | `/api/tasks/{id}/start` | 启动任务 |
 | POST | `/api/tasks/{id}/stop` | 停止任务 |
-| DELETE | `/api/tasks/{id}` | 删除任务 |
-| GET | `/api/tasks/{id}/logs` | 获取任务日志 |
-| GET | `/api/tasks/stats` | 获取统计 |
+| GET | `/api/tasks/stats` | 统计概览 |
+| GET | `/api/admin/users` | 查看所有用户 (管理员) |
+| GET | `/api/admin/stats` | 平台统计 (管理员) |
 
-### 管理员接口
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/users` | 查看所有用户 |
-| GET | `/api/admin/stats` | 平台统计 |
-| GET | `/api/admin/accounts` | 所有账号 |
-| GET | `/api/admin/tasks` | 所有任务 |
-| PUT | `/api/admin/users/{id}/toggle` | 启用/禁用用户 |
+## 目录结构
 
-## 🔐 环境变量
-
-```bash
-export JWT_SECRET="your-secret-key"  # JWT密钥
-export PORT=8765                      # 服务端口
-export DB_PATH="/path/to/db.db"       # 数据库路径
+```
+weichat-sync/
+├── backend/
+│   ├── main.py              # FastAPI 主入口
+│   ├── database.py          # SQLAlchemy 配置
+│   ├── models.py            # 数据模型
+│   ├── schemas.py           # Pydantic 模式
+│   ├── auth.py              # JWT 认证
+│   ├── routers/
+│   │   ├── auth.py          # 认证路由
+│   │   ├── accounts.py      # 账号管理
+│   │   ├── tasks.py         # 跟圈任务
+│   │   └── admin.py         # 管理员接口
+│   └── services/
+│       ├── wechat_service.py # 微信模拟器
+│       └── sync_service.py   # 同步调度器
+├── frontend/
+│   ├── index.html           # 单页应用
+│   ├── css/style.css        # 样式
+│   └── js/                  # 前端逻辑
+├── deploy.sh                # 一键启动脚本
+├── requirements.txt
+└── README.md
 ```
 
 ## ⚠️ 注意事项
 
-1. 本系统为**原型演示**，微信服务部分使用模拟器
+1. 本系统为原型演示，微信服务使用模拟器
 2. 实际生产需对接真实微信Hook协议或企业微信API
 3. 逆向微信协议存在法律风险，请合规使用
-4. 默认管理员账号：`admin` / `admin123`，首次登录后请立即修改密码
