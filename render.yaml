@@ -3,9 +3,11 @@ services:
     name: weichat-sync
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python backend/main.py
+    startCommand: gunicorn backend.gunicorn_app:application --workers 2 --timeout 120 --bind 0.0.0.0:$PORT
     envVars:
       - key: PORT
-        value: 8080
-      - key: JWT_SECRET
+        value: 8765
+      - key: JWT_SECRET_KEY
         generateValue: true
+      - key: DB_PATH
+        value: /opt/render/local/src/data/weichat_sync.db
