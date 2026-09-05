@@ -1,0 +1,116 @@
+# -*- coding: utf-8 -*-
+"""云端微信跟圈 SaaS 后端主入口"""
+import asyncio
+import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from datetime import datetime
+
+from database import engine, Base
+import models
+from routers import auth, accounts, tasks, admin
+from services.wechat_service import init_default_admin
+from services.sync_service import sync_manager, start_all_running_tasks
+
+
+async def _init_db():
+    """初始化数据库表结构"""
+    Base.metadata.create_all(bind=engine)
+    print("[数据库] 表结构初始化完成")
+
+
+async def _seed_admin():
+    """初始化默认管理员"""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        init_default_admin(db)
+    finally:
+        db.close()
+    print("[系统] 管理员初始化完成")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("=" * 50)
+    print("  云端微信跟圈 SaaS 服务启动中...")
+    print("=" * 50)
+    await _init_db()
+    await _seed_admin()
+    await start_all_running_tasks()
+    asyncio.create_task(_heartbeat_loop())
+    yield
+    print("\n[系统] 服务正在关闭...")
+    await sync_manager.shutdown_all(None)
+    print("[系统] 服务已关闭")
+
+
+async def _heartbeat_loop():
+    """心跳巡检：模拟掉线重连逻辑"""
+    from database import SessionLocal
+    import random
+    while True:
+        await asyncio.sleep(30)
+        try:
+            db = SessionLocal()
+            accounts = db.query(models.WeChatAccount).filter(
+                models.WeChatAccount.status == "online"
+            ).all()
+            for acc in accounts:
+                if random.random() < 0.01:
+                    acc.status = "offline"
+                    acc.last_offline = datetime.utcnow()
+                    acc.error_msg = "模拟异常掉线"
+                    print(f"[告警] 账号 {acc.wxid} 意外掉线")
+                    db.commit()
+            db.close()
+        except Exception as e:
+            print(f"[心跳] 巡检异常: {e}")
+
+
+app = FastAPI(
+    title="云端微信跟圈 SaaS",
+    description="微信朋友圈自动同步管理系统原型",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(accounts.router)
+app.include_router(tasks.router)
+app.include_router(admin.router)
+
+
+@app.get("/api/health")
+def health_check():
+    """健康检查接口"""
+    return {
+        "status": "ok",
+        "service": "weichat-sync",
+        "version": "1.0.0",
+        "running_tasks": sync_manager.get_running_count(),
+    }
+
+
+# 前端静态文件托管
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8765"))
+    print(f"🚀 启动服务: http://{host}:{port}")
+    uvicorn.run(app, host=host, port=port, log_level="info")

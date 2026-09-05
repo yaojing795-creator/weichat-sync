@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云端微信跟圈 SaaS</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* 登录页专用样式 */
+    #page-login, #page-register {
+      display: flex;
+    }
+    .auth-wrapper { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #07C160 0%, #1890FF 100%); }
+    .auth-card { background: #fff; border-radius: 16px; padding: 40px; width: 400px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .auth-card h1 { text-align: center; margin-bottom: 6px; font-size: 24px; color: #07C160; }
+    .auth-card .subtitle { text-align: center; color: #888; margin-bottom: 28px; font-size: 14px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; color: #888; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 12px 14px; border: 1px solid #e8e8e8; border-radius: 8px; font-size: 15px; }
+    .form-group input:focus { border-color: #07C160; }
+    .btn-primary { width: 100%; padding: 13px; background: #07C160; color: #fff; border-radius: 8px; font-size: 16px; font-weight: 600; }
+    .btn-primary:hover { background: #06AD56; }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+    .auth-toggle { text-align: center; margin-top: 18px; font-size: 14px; color: #888; }
+    .auth-toggle a { color: #07C160; cursor: pointer; font-weight: 600; }
+    .auth-error { color: #FA5151; font-size: 13px; margin-bottom: 12px; text-align: center; min-height: 20px; }
+  </style>
+</head>
+<body>
+
+<!-- Toast 容器 -->
+<div id="toast-container"></div>
+
+<!-- ==================== 登录页 ==================== -->
+<div id="page-login" class="page active">
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1>💬 微信跟圈</h1>
+      <p class="subtitle">云端朋友圈自动同步管理平台</p>
+      <div id="login-error" class="auth-error"></div>
+      <div class="form-group">
+        <label>用户名</label>
+        <input id="login-username" type="text" placeholder="请输入用户名" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input id="login-password" type="password" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <button id="login-btn" class="btn-primary" onclick="handleLogin()">登 录</button>
+      <div class="auth-toggle">
+        还没有账号？<a onclick="showPage('register')">立即注册</a>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:12px;color:#888;text-align:center;">
+        演示账号: <strong>admin</strong> / <strong>admin123</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 注册页 ==================== -->
+<div id="page-register" class="page">
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1>💬 注册账号</h1>
+      <p class="subtitle">创建您的云端跟圈账户</p>
+      <div id="register-error" class="auth-error"></div>
+      <div class="form-group">
+        <label>用户名</label>
+        <input id="reg-username" type="text" placeholder="3-50个字符">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input id="reg-password" type="password" placeholder="至少6个字符">
+      </div>
+      <div class="form-group">
+        <label>邮箱（选填）</label>
+        <input id="reg-email" type="email" placeholder="用于找回密码">
+      </div>
+      <button id="reg-btn" class="btn-primary" onclick="handleRegister()">注 册</button>
+      <div class="auth-toggle">
+        已有账号？<a onclick="showPage('login')">去登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 主布局 ==================== -->
+<div id="page-app" class="page">
+  <div class="app-layout">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>💬 微信跟圈</h2>
+        <small>云端同步管理平台</small>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+          <span class="icon">📊</span> 仪表盘
+        </div>
+        <div class="nav-item" data-page="accounts" onclick="navigateTo('accounts')">
+          <span class="icon">📱</span> 账号管理
+        </div>
+        <div class="nav-item" data-page="tasks" onclick="navigateTo('tasks')">
+          <span class="icon">🔄</span> 跟圈任务
+        </div>
+        <div class="nav-item" data-page="admin" onclick="navigateTo('admin')" id="nav-admin" style="display:none;">
+          <span class="icon">⚙️</span> 系统管理
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        v1.0.0 · 云端托管原型
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <div class="main-area">
+      <header class="topbar">
+        <h3 id="page-title">仪表盘</h3>
+        <div class="topbar-right">
+          <span class="user-badge">欢迎，<strong id="user-name">用户</strong></span>
+          <button class="btn-logout" onclick="handleLogout()">退出登录</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- 仪表盘页面 -->
+        <div id="page-dashboard" class="page-content active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="num" id="stat-accounts">0</div>
+              <div class="label">微信账号</div>
+            </div>
+            <div class="stat-card online">
+              <div class="num" id="stat-online">0</div>
+              <div class="label">在线账号</div>
+            </div>
+            <div class="stat-card">
+              <div class="num" id="stat-tasks">0</div>
+              <div class="label">跟圈任务</div>
+            </div>
+            <div class="stat-card warning">
+              <div class="num" id="stat-running">0</div>
+              <div class="label">运行中</div>
+            </div>
+            <div class="stat-card">
+              <div class="num" id="stat-today">0</div>
+              <div class="label">今日转发</div>
+            </div>
+            <div class="stat-card online">
+              <div class="num" id="stat-success">0</div>
+              <div class="label">成功</div>
+            </div>
+            <div class="stat-card danger">
+              <div class="num" id="stat-failed">0</div>
+              <div class="label">失败</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">快速操作</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button class="btn btn-green" onclick="navigateTo('accounts');setTimeout(()=>showAddAccountModal(),200)">➕ 添加账号</button>
+              <button class="btn btn-blue" onclick="navigateTo('tasks');setTimeout(()=>showAddTaskModal(),200)">➕ 新建跟圈任务</button>
+              <button class="btn btn-gray" onclick="refreshDashboard()">🔄 刷新数据</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">最近转发记录</div>
+            <div id="recent-forwards">
+              <div class="empty-state"><div class="icon">📭</div><p>暂无转发记录</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 账号管理页面 -->
+        <div id="page-accounts" class="page-content" style="display:none;">
+          <div class="toolbar">
+            <button class="btn btn-green" onclick="showAddAccountModal()">➕ 添加账号</button>
+            <button class="btn btn-gray" onclick="loadAccounts()">🔄 刷新</button>
+          </div>
+          <div id="accounts-list"></div>
+        </div>
+
+        <!-- 跟圈任务页面 -->
+        <div id="page-tasks" class="page-content" style="display:none;">
+          <div class="toolbar">
+            <button class="btn btn-green" onclick="showAddTaskModal()">➕ 新建跟圈任务</button>
+            <select class="filter-select" id="filter-task-status" onchange="filterTasks()">
+              <option value="">全部状态</option>
+              <option value="running">运行中</option>
+              <option value="stopped">已停止</option>
+            </select>
+            <button class="btn btn-gray" onclick="loadTasks()">🔄 刷新</button>
+          </div>
+          <div id="tasks-list"></div>
+        </div>
+
+        <!-- 管理员页面 -->
+        <div id="page-admin" class="page-content" style="display:none;">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="num" id="admin-stat-users">0</div><div class="label">注册用户</div></div>
+            <div class="stat-card"><div class="num" id="admin-stat-accounts">0</div><div class="label">总账号数</div></div>
+            <div class="stat-card online"><div class="num" id="admin-stat-online">0</div><div class="label">在线账号</div></div>
+            <div class="stat-card"><div class="num" id="admin-stat-tasks">0</div><div class="label">总任务数</div></div>
+            <div class="stat-card warning"><div class="num" id="admin-stat-running">0</div><div class="label">运行中</div></div>
+            <div class="stat-card"><div class="num" id="admin-stat-today">0</div><div class="label">今日转发</div></div>
+            <div class="stat-card online"><div class="num" id="admin-stat-success">0</div><div class="label">成功</div></div>
+            <div class="stat-card danger"><div class="num" id="admin-stat-failed">0</div><div class="label">失败</div></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">用户管理</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+                <tbody id="admin-users-list"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">全平台任务</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>源好友ID</th><th>账号ID</th><th>状态</th><th>延迟</th><th>转发次数</th><th>创建时间</th></tr></thead>
+                <tbody id="admin-tasks-list"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 弹窗：添加账号 ==================== -->
+<div id="modal-add-account" class="modal-overlay" onclick="if(event.target===this)hideModal('modal-add-account')">
+  <div class="modal">
+    <h3>添加微信账号</h3>
+    <div class="form-group">
+      <label>微信ID *</label>
+      <input id="input-wxid" type="text" placeholder="输入微信号或微信ID">
+    </div>
+    <div class="form-group">
+      <label>昵称（选填）</label>
+      <input id="input-nickname" type="text" placeholder="账号昵称，便于识别">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="hideModal('modal-add-account')">取消</button>
+      <button class="btn btn-green" onclick="submitAddAccount()">确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 弹窗：新建任务 ==================== -->
+<div id="modal-add-task" class="modal-overlay" onclick="if(event.target===this)hideModal('modal-add-task')">
+  <div class="modal">
+    <h3>新建跟圈任务</h3>
+    <div class="form-group">
+      <label>目标账号 *</label>
+      <select id="select-task-account" class="search-input" style="width:100%;">
+        <option value="">-- 请先添加微信账号 --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>源好友微信ID *</label>
+      <input id="input-source-wxid" type="text" placeholder="监听该好友的朋友圈动态">
+    </div>
+    <div class="form-group">
+      <label>源好友昵称（选填）</label>
+      <input id="input-source-nickname" type="text" placeholder="便于识别">
+    </div>
+    <div class="form-group">
+      <label>转发延迟（秒，0-300）</label>
+      <input id="input-delay" type="number" min="0" max="300" value="60" placeholder="60">
+      <small style="color:#888;font-size:11px;">设置后好友发布动态，将在 N 秒后自动转发到目标账号</small>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="hideModal('modal-add-task')">取消</button>
+      <button class="btn btn-green" onclick="submitAddTask()">创建任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 弹窗：任务日志 ==================== -->
+<div id="modal-task-logs" class="modal-overlay" onclick="if(event.target===this)hideModal('modal-task-logs')">
+  <div class="modal" style="width:680px;">
+    <div class="card-title" id="task-logs-title">转发日志</div>
+    <div id="task-logs-content" style="max-height:400px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="hideModal('modal-task-logs')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 脚本引入 ==================== -->
+<script src="/js/utils.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/pages/dashboard.js"></script>
+<script src="/js/pages/accounts.js"></script>
+<script src="/js/pages/tasks.js"></script>
+<script src="/js/pages/admin.js"></script>
+<script>
+// ===== 全局导航与认证逻辑 =====
+let currentUser = null;
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + pageId);
+  if (target) target.classList.add('active');
+}
+
+function navigateTo(page) {
+  document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const content = document.getElementById('page-' + page);
+  if (content) content.style.display = 'block';
+  const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (nav) nav.classList.add('active');
+  const titles = { dashboard: '仪表盘', accounts: '账号管理', tasks: '跟圈任务', admin: '系统管理' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  // 加载对应页面数据
+  if (page === 'dashboard') loadDashboard();
+  else if (page === 'accounts') loadAccounts();
+  else if (page === 'tasks') loadTasks();
+  else if (page === 'admin') { loadAdminStats(); loadAdminUsers(); loadAdminTasks(); }
+}
+
+async function handleLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  if (!username || !password) { errEl.textContent = '请输入用户名和密码'; return; }
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> 登录中...';
+  errEl.textContent = '';
+  try {
+    const res = await api.login(username, password);
+    api.token = res.access_token;
+    localStorage.setItem('token', res.access_token);
+    localStorage.setItem('user', JSON.stringify(res.user));
+    currentUser = res.user;
+    enterApp();
+  } catch (e) {
+    errEl.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '登 录';
+  }
+}
+
+async function handleRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const email = document.getElementById('reg-email').value.trim();
+  const errEl = document.getElementById('register-error');
+  const btn = document.getElementById('reg-btn');
+  if (!username || !password) { errEl.textContent = '请填写用户名和密码'; return; }
+  if (password.length < 6) { errEl.textContent = '密码至少6位'; return; }
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span> 注册中...';
+  errEl.textContent = '';
+  try {
+    await api.register(username, password, email || null);
+    toast('注册成功，请登录', 'success');
+    showPage('login');
+    document.getElementById('login-username').value = username;
+  } catch (e) {
+    errEl.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '注 册';
+  }
+}
+
+function handleLogout() {
+  api.token = null;
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  currentUser = null;
+  showPage('login');
+}
+
+function enterApp() {
+  showPage('app');
+  document.getElementById('user-name').textContent = currentUser?.username || '用户';
+  if (currentUser?.is_admin) {
+    document.getElementById('nav-admin').style.display = 'flex';
+  }
+  navigateTo('dashboard');
+}
+
+// 页面加载时检查登录状态
+(function init() {
+  const token = localStorage.getItem('token');
+  const userStr = localStorage.getItem('user');
+  if (token && userStr) {
+    api.token = token;
+    try { currentUser = JSON.parse(userStr); } catch(e) {}
+    if (currentUser) { enterApp(); return; }
+  }
+  showPage('login');
+})();
+
+// 回车键登录
+document.getElementById('login-password')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+document.getElementById('login-username')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+document.getElementById('reg-password')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleRegister(); });
+document.getElementById('reg-username')?.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('reg-password').focus(); });
+
+// 注入全局弹窗函数
+window.showAddAccountModal = window.showAddAccountModal || function() { showModal('modal-add-account'); };
+window.submitAddAccount = window.submitAddAccount || function() {};
+window.showAddTaskModal = window.showAddTaskModal || function() { showModal('modal-add-task'); };
+window.submitAddTask = window.submitAddTask || function() {};
+window.startTask = window.startTask || function() {};
+window.stopTask = window.stopTask || function() {};
+window.deleteTask = window.deleteTask || function() {};
+window.viewTaskLogs = window.viewTaskLogs || function() {};
+window.refreshDashboard = window.refreshDashboard || function() {};
+window.toggleUser = window.toggleUser || function() {};
+</script>
+</body>
+</html>

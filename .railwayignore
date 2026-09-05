@@ -1,0 +1,5 @@
+frontend/css/*.css
+frontend/js/pages/*.js
+*.md
+*.sh
+.DS_Store
