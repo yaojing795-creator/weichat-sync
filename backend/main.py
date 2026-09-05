@@ -17,7 +17,7 @@ from services.sync_service import sync_manager, start_all_running_tasks
 
 async def _init_db():
     """初始化数据库表结构（如果不存在）"""
-    # 使用checkfirst=True参数，避免重复创建已存在的表
+    # 使用checkfirst=True参数，避免重复创建表
     Base.metadata.create_all(bind=engine, checkfirst=True)
     print("[数据库] 表结构检查完成")
 
@@ -41,34 +41,12 @@ async def lifespan(app: FastAPI):
     await _init_db()
     await _seed_admin()
     await start_all_running_tasks()
-    asyncio.create_task(_heartbeat_loop())
+    # 不创建后台任务，避免阻塞启动
+    print("[系统] 服务启动完成")
     yield
     print("\n[系统] 服务正在关闭...")
     await sync_manager.shutdown_all(None)
     print("[系统] 服务已关闭")
-
-
-async def _heartbeat_loop():
-    """心跳巡检：模拟掉线重连逻辑"""
-    from database import SessionLocal
-    import random
-    while True:
-        await asyncio.sleep(30)
-        try:
-            db = SessionLocal()
-            accounts = db.query(models.WeChatAccount).filter(
-                models.WeChatAccount.status == "online"
-            ).all()
-            for acc in accounts:
-                if random.random() < 0.01:
-                    acc.status = "offline"
-                    acc.last_offline = datetime.utcnow()
-                    acc.error_msg = "模拟异常掉线"
-                    print(f"[告警] 账号 {acc.wxid} 意外掉线")
-                    db.commit()
-            db.close()
-        except Exception as e:
-            print(f"[心跳] 巡检异常: {e}")
 
 
 app = FastAPI(
@@ -101,6 +79,12 @@ def health_check():
         "version": "1.0.0",
         "running_tasks": sync_manager.get_running_count(),
     }
+
+
+@app.get("/")
+def root():
+    """根路径"""
+    return {"message": "云端微信跟圈 SaaS 服务运行中"}
 
 
 # 前端静态文件托管
