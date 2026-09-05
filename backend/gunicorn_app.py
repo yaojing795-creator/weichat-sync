@@ -11,3 +11,9 @@ from main import app
 
 # Gunicorn 会自动导入这个 app 对象
 application = app
+
+# 添加健康检查端点
+@app.get("/health")
+async def health_check():
+    """健康检查端点"""
+    return {"status": "ok"}
